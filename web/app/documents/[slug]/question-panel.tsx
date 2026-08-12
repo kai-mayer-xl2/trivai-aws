@@ -72,7 +72,7 @@ export function QuestionPanel({
     if (questions.length === 0) {
         return (
             <button
-                className="flex h-12 min-h-12 items-center justify-center rounded-full bg-foreground px-5 text-base font-medium text-background transition-colors hover:bg-[#383838] disabled:cursor-wait disabled:opacity-70 dark:hover:bg-[#ccc]"
+                className="flex h-12 min-h-12 items-center justify-center rounded-full bg-foreground px-5 text-base font-medium text-background transition-colors hover:bg-[#383838] disabled:cursor-wait disabled:opacity-70 dark:hover:bg-[#ccc] cursor-pointer"
                 onClick={handleGenerateQuestions}
                 type="button"
             >
@@ -117,27 +117,38 @@ export function QuestionPanel({
                     />
                 ))}
             </ol>
-            <button
-                className="flex h-12 min-h-12 items-center justify-center rounded-full bg-foreground px-5 text-base font-medium text-background transition-colors hover:bg-[#383838] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-[#ccc]"
-                disabled={!allQuestionsAnswered || isSubmitting}
-                onClick={handleSubmit}
-                type="button"
-            >
-                Get Study Guidance
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                    className="flex h-12 min-h-12 items-center justify-center rounded-full bg-foreground px-5 text-base font-medium text-background transition-colors hover:bg-[#383838] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-[#ccc] cursor-pointer"
+                    disabled={!allQuestionsAnswered || isSubmitting || studyGuidance !== null}
+                    onClick={handleSubmit}
+                    type="button"
+                    >
+                    Get Study Guidance
+                </button>
+            </div>
             {isSubmitting ? LargeBoxShimmer() : studyGuidance ? (
                 <>
                     <p className="rounded-lg border border-black/[.08] px-4 py-3 text-base leading-7 text-zinc-600 dark:border-white/[.145] dark:text-zinc-400">
                         {studyGuidance}
                     </p>
-                    <button
-                        className="flex h-12 min-h-12 items-center justify-center rounded-full bg-foreground px-5 text-base font-medium text-background transition-colors hover:bg-[#383838] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-[#ccc]"
-                        disabled={isSubmitting}
-                        onClick={handleGenerateQuestions}
-                        type="button"
-                    >
-                        Start Over
-                    </button>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <button
+                            className="flex h-12 min-h-12 items-center justify-center rounded-full bg-foreground px-5 text-base font-medium text-background transition-colors hover:bg-[#383838] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-[#ccc] cursor-pointer"
+                            disabled={isSubmitting}
+                            onClick={handleGenerateQuestions}
+                            type="button"
+                            >
+                            Create New Questions
+                        </button>
+                        <a
+                            className="flex h-12 min-h-12 items-center justify-center rounded-full bg-foreground px-5 text-base font-medium text-background transition-colors hover:bg-[#383838] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-[#ccc] cursor-pointer"
+                            href="/upload"
+                            type="button"
+                            >
+                            Upload Another Document
+                        </a>
+                    </div>
                 </>
             ) : null}
         </div>

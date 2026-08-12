@@ -23,13 +23,13 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
                         Document
                     </p>
                     <a
-                        className="group inline-flex max-w-full items-center gap-2 text-3xl font-semibold leading-10 tracking-tight text-black underline decoration-zinc-300 decoration-2 underline-offset-8 transition-colors hover:text-zinc-600 hover:decoration-zinc-500 dark:text-zinc-50 dark:decoration-zinc-700 dark:hover:text-zinc-300 dark:hover:decoration-zinc-400"
+                        className="group inline-flex max-w-full items-center gap-2 border-b-2 border-zinc-300 text-3xl font-semibold leading-10 tracking-tight text-black transition-colors hover:border-zinc-500 hover:text-zinc-600 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-400 dark:hover:text-zinc-300"
                         href={document.url}
                         rel="noreferrer"
                         target="_blank"
                     >
                         <span className="truncate">{document.title}</span>
-                        <span aria-hidden="true" className="shrink-0 text-lg no-underline">
+                        <span aria-hidden="true" className="shrink-0 text-lg">
                             ↗
                         </span>
                     </a>

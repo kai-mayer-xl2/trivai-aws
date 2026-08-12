@@ -42,8 +42,8 @@ export function QuestionItem({
                         ✓
                     </span>
                 ) : null}
-                <span aria-hidden="true" className="text-zinc-400">
-                    {isOpen ? "−" : "+"}
+                <span aria-hidden="true" className="text-zinc-400 w-2">
+                    {isOpen ? "-" : "+"}
                 </span>
             </button>
             {isOpen ? (
@@ -54,7 +54,7 @@ export function QuestionItem({
                     {answers.map((answer, answerIndex) => (
                         <button
                             aria-pressed={selectedAnswer === answerIndex}
-                            className={`flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left text-sm leading-5 transition-colors ${selectedAnswer === answerIndex
+                            className={`flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left text-sm leading-5 transition-colors cursor-pointer ${selectedAnswer === answerIndex
                                 ? "border-foreground bg-black/[.05] text-foreground dark:bg-white/[.1]"
                                 : "border-black/[.08] text-zinc-600 hover:border-black/[.18] hover:bg-black/[.03] dark:border-white/[.145] dark:text-zinc-400 dark:hover:border-white/[.25] dark:hover:bg-white/[.04]"
                                 }`}

@@ -1,5 +1,15 @@
 "use server";
 
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client } from "@aws-sdk/client-s3";
+import { redirect } from "next/navigation";
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+});
+
+const ASSETS_BUCKET_NAME = process.env.ASSETS_BUCKET_NAME;
+
 export type DocumentQuestion = {
     id: string;
     question: string;
@@ -12,6 +22,28 @@ export type DocumentRecord = {
     url: string;
     questions: DocumentQuestion[];
 };
+
+export async function handleDocumentUpload(formData: FormData): Promise<{ success: boolean, error?: string }> {
+    const file = formData.get("document") as File | null;
+    if (!file) {
+        throw new Error("No file provided");
+    }
+
+    const body = await file.bytes();
+    const id = crypto.randomUUID();
+
+    if (body.length > 10 * 1024 * 1024) {
+        return { success: false, error: "File size exceeds the 10MB limit." };
+    }
+
+    await s3.send(new PutObjectCommand({
+        Bucket: ASSETS_BUCKET_NAME,
+        Key: `documents/${id}.pdf`,
+        Body: body,
+    }));
+
+    redirect(`/documents/${id}`);
+}
 
 export async function getDocumentById(id: string): Promise<DocumentRecord> {
     return {
