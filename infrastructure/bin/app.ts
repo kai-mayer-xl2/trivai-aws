@@ -8,7 +8,7 @@ const env = {
 };
 
 function createStage(app: App, stage: string, env: Environment): [AppStack] {
-  const appStack = new AppStack(app, 'pixelflut-app-stack', {
+  const appStack = new AppStack(app, 'trivai-app-stack', {
     stage: stage,
     env: env,
   });

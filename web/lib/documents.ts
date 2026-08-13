@@ -1,17 +1,23 @@
 "use server";
 
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { S3Client } from "@aws-sdk/client-s3";
-import { redirect } from "next/navigation";
+import { BedrockRuntimeClient, ConverseCommand, DocumentFormat } from "@aws-sdk/client-bedrock-runtime";
+import { notFound, redirect } from "next/navigation";
+import { CREATE_QUESTIONS_PROMPT, CREATE_STUDY_GUIDANCE_PROMPT } from "./prompts";
+
+const ASSETS_BUCKET_NAME = process.env.ASSETS_BUCKET_NAME;
 
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
 });
 
-const ASSETS_BUCKET_NAME = process.env.ASSETS_BUCKET_NAME;
+const bedrock = new BedrockRuntimeClient({
+  region: process.env.AWS_REGION,
+});
 
-export type DocumentQuestion = {
-    id: string;
+
+export type Question = {
     question: string;
     answers: string[];
 };
@@ -20,7 +26,7 @@ export type DocumentRecord = {
     id: string;
     title: string;
     url: string;
-    questions: DocumentQuestion[];
+    questions: Question[];
 };
 
 export async function handleDocumentUpload(formData: FormData): Promise<{ success: boolean, error?: string }> {
@@ -32,23 +38,37 @@ export async function handleDocumentUpload(formData: FormData): Promise<{ succes
     const body = await file.bytes();
     const id = crypto.randomUUID();
 
-    if (body.length > 10 * 1024 * 1024) {
-        return { success: false, error: "File size exceeds the 10MB limit." };
+    if (body.length > 1 * 1024 * 1024) {
+        return { success: false, error: "File size exceeds the 1MB limit." };
     }
 
     await s3.send(new PutObjectCommand({
         Bucket: ASSETS_BUCKET_NAME,
         Key: `documents/${id}.pdf`,
         Body: body,
+        Metadata: {
+            name: file.name,
+        },
     }));
 
     redirect(`/documents/${id}`);
 }
 
 export async function getDocumentById(id: string): Promise<DocumentRecord> {
+    const metadata = await s3.send(new HeadObjectCommand({
+        Bucket: ASSETS_BUCKET_NAME,
+        Key: `documents/${id}.pdf`,
+    })).catch((error) => {
+        if (error.name === "NotFound") {
+            notFound();
+        }
+
+        throw error;
+    });
+
     return {
         id,
-        title: "Document title",
+        title: metadata.Metadata?.name || "Untitled Document",
         url: `/documents/${id}/file`,
         questions: [],
     };
@@ -56,62 +76,75 @@ export async function getDocumentById(id: string): Promise<DocumentRecord> {
 
 export async function generateQuestionsForDocument(
     documentId: string,
-): Promise<DocumentQuestion[]> {
-    void documentId;
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+): Promise<Question[]> {
+    const response = await bedrock.send(new ConverseCommand({
+        modelId: "eu.amazon.nova-pro-v1:0",
+        messages: [
+            {
+                role: "user",
+                content: [
+                    {
+                        text: CREATE_QUESTIONS_PROMPT, 
+                    },
+                    {
+                        document: {
+                            format: DocumentFormat.PDF,
+                            name: "document",
+                            source: {
+                                s3Location: {
+                                    uri: `s3://${ASSETS_BUCKET_NAME}/documents/${documentId}.pdf`,
+                                },
+                            },
+                        }
+                    }
+                ]
+            },
+        ],
+    }));
 
+    const text = response.output?.message?.content?.[0]?.text;
+    if (!text) {
+        throw new Error("No text response from model");
+    }
 
-    return [
-        {
-            id: "1",
-            question: "What is the main topic of the document?",
-            answers: [
-                "Its central subject and purpose",
-                "The document's publication history",
-                "The author's personal biography",
-                "A list of unrelated references",
-            ],
-        },
-        {
-            id: "2",
-            question: "Which idea is most important to remember?",
-            answers: [
-                "The supporting example",
-                "The main argument",
-                "The document's page count",
-                "The formatting choices",
-            ],
-        },
-        {
-            id: "3",
-            question: "How does the document support its main idea?",
-            answers: [
-                "With evidence and explanations",
-                "With decorative headings only",
-                "By avoiding any examples",
-                "By repeating the title",
-            ],
-        },
-        {
-            id: "4",
-            question: "What should you review more closely?",
-            answers: [
-                "The concepts you found least clear",
-                "Only the introduction",
-                "The document's file name",
-                "Nothing beyond the summary",
-            ],
-        },
-    ];
+    const json = JSON.parse(text) as { questions: Question[] };
+    return json.questions;
 }
 
 export async function submitQuestionsForDocument(
     documentId: string,
-    answers: Record<string, number>,
+    correctAnswers: Record<string, string>,
+    wrongAnswers: Record<string, string>,
 ): Promise<string> {
-    void documentId;
-    void answers;
+ const response = await bedrock.send(new ConverseCommand({
+        modelId: "eu.amazon.nova-pro-v1:0",
+        messages: [
+            {
+                role: "user",
+                content: [
+                    {
+                        text: CREATE_STUDY_GUIDANCE_PROMPT(correctAnswers, wrongAnswers),
+                    },
+                    {
+                        document: {
+                            format: DocumentFormat.PDF,
+                            name: "document",
+                            source: {
+                                s3Location: {
+                                    uri: `s3://${ASSETS_BUCKET_NAME}/documents/${documentId}.pdf`,
+                                },
+                            },
+                        }
+                    }
+                ]
+            },
+        ],
+    }));
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    return "Review the document's main argument, the evidence supporting it, and any concepts you found difficult while answering. Revisit those sections and summarize them in your own words.";
+    const text = response.output?.message?.content?.[0]?.text;
+    if (!text) {
+        throw new Error("No text response from model");
+    }
+
+    return text;
 }

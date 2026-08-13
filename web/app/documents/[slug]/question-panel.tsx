@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 
-import type { DocumentQuestion } from "@/lib/documents";
+import type {  Question } from "@/lib/documents";
 
 import { QuestionItem } from "./question-item";
 
 type QuestionPanelProps = {
     documentId: string;
-    initialQuestions: DocumentQuestion[];
-    onGenerate: (documentId: string) => Promise<DocumentQuestion[]>;
-    onSubmit: (documentId: string, answers: Record<string, number>) => Promise<string>;
+    initialQuestions: Question[];
+    onGenerate: (documentId: string) => Promise<Question[]>;
+    onSubmit: (documentId: string, correctAnswers: Record<string, string>, wrongAnswers: Record<string, string>) => Promise<string>;
 };
 
 
@@ -22,9 +22,9 @@ function LargeBoxShimmer() {
     );
 }
 
-function QuestionShimmer({ label }: { label: string }) {
+function QuestionShimmer() {
     return (
-        <div aria-label={label} className="space-y-3" role="status">
+        <div className="space-y-3" role="status">
             {Array.from({ length: 5 }, (_, index) => (
                 <div
                     className="h-[52px] overflow-hidden rounded-lg border border-black/[.08] bg-zinc-100 dark:border-white/[.145] dark:bg-zinc-900"
@@ -33,7 +33,6 @@ function QuestionShimmer({ label }: { label: string }) {
                     <div className="document-shimmer h-full w-2/3" />
                 </div>
             ))}
-            <span className="sr-only">{label}</span>
         </div>
     );
 }
@@ -66,7 +65,7 @@ export function QuestionPanel({
     }
 
     if (isGenerating) {
-        return <QuestionShimmer label="Generating questions" />;
+        return <QuestionShimmer />;
     }
 
     if (questions.length === 0) {
@@ -82,14 +81,25 @@ export function QuestionPanel({
     }
 
     const allQuestionsAnswered = questions.every(
-        (question) => selectedAnswers[question.id] !== undefined,
+        (_, index) => selectedAnswers[index] !== undefined,
     );
 
     async function handleSubmit() {
         setIsSubmitting(true);
 
+        const correctAnswers: Record<string, string> = {};
+        const wrongAnswers: Record<string, string> = {};
+
+        for (const [index, answerIndex] of Object.entries(selectedAnswers)) {
+            if (answerIndex === 0) {
+                correctAnswers[index] = answerIndex.toString();
+            } else {
+                wrongAnswers[index] = answerIndex.toString();
+            }
+        }
+
         try {
-            setStudyGuidance(await onSubmit(documentId, selectedAnswers));
+            setStudyGuidance(await onSubmit(documentId, correctAnswers, wrongAnswers));
         } finally {
             setIsSubmitting(false);
         }
@@ -103,17 +113,17 @@ export function QuestionPanel({
                         answers={question.answers}
                         index={index}
                         isOpen={openQuestion === index}
-                        key={question.id}
+                        key={index}
                         onAnswer={(answerIndex) => {
                             setSelectedAnswers((current) => ({
                                 ...current,
-                                [question.id]: answerIndex,
+                                [index]: answerIndex,
                             }));
                             setOpenQuestion(index + 1 < questions.length ? index + 1 : null);
                         }}
                         onToggle={() => setOpenQuestion(openQuestion === index ? null : index)}
                         question={question.question}
-                        selectedAnswer={selectedAnswers[question.id]}
+                        selectedAnswer={selectedAnswers[index]}
                     />
                 ))}
             </ol>
