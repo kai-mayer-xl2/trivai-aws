@@ -2,7 +2,7 @@ import { CfnOutput, Duration, Fn, RemovalPolicy, Stack, StackProps } from 'aws-c
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { EndpointType, LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { AllowedMethods, CachePolicy, Distribution, OriginRequestPolicy, ViewerProtocolPolicy } from 'aws-cdk-lib/aws-cloudfront';
-import { HttpOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
+import { HttpOrigin, S3BucketOrigin, S3Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Architecture, DockerImageCode, DockerImageFunction, FunctionUrlAuthType } from 'aws-cdk-lib/aws-lambda';
@@ -77,6 +77,7 @@ export class AppStack extends Stack {
         });
 
         const distribution = new Distribution(this, 'trivai-distribution', {
+            comment: `trivai-distribution-${props.stage}`,
             defaultBehavior: {
                 // use the function url instead of the api gateway, because the api has 29 second timeout, which is not enough for large pdfs.
                 /* origin: new HttpOrigin(`${api.restApiId}.execute-api.${this.region}.amazonaws.com`, {
@@ -89,6 +90,16 @@ export class AppStack extends Stack {
                 cachePolicy: CachePolicy.CACHING_DISABLED,
                 originRequestPolicy: OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
                 viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            },
+            additionalBehaviors: {
+                '/assets/*': {
+                    origin: S3BucketOrigin.withOriginAccessControl(bucket, {
+                        originPath: '/public',
+                    }),
+                    allowedMethods: AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+                    cachePolicy: CachePolicy.CACHING_OPTIMIZED,
+                    viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                },
             },
         });
 

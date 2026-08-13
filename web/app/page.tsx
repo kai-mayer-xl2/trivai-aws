@@ -6,7 +6,7 @@ export default function Home() {
       <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
         <Image
           className="dark:invert h-20 w-[200px] sm:w-[100px]"
-          src="/logo.svg"
+          src="/assets/logo.svg"
           alt="TrivAI logo"
           width={200}
           height={50}
