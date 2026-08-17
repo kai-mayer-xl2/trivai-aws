@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 
 type QuestionItemProps = {
     index: number;
@@ -22,12 +24,18 @@ function AnswerChoices({
     selectedAnswer: number | undefined;
     onAnswer: (answerIndex: number) => void;
 }) {
+    const [shuffledAnswers] = useState(() =>
+        answers
+            .map((answer, answerIndex) => ({ answer, answerIndex }))
+            .sort(() => Math.random() - 0.5),
+    );
+
     return (
         <div
             className="space-y-2 border-t border-black/[.08] px-4 py-3 dark:border-white/[.145]"
             id={`${questionId}-answers`}
         >
-            {answers.map((answer, answerIndex) => (
+            {shuffledAnswers.map(({ answer, answerIndex }, displayIndex) => (
                 <button
                     aria-pressed={selectedAnswer === answerIndex}
                     className={`flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left text-sm leading-5 transition-colors cursor-pointer ${selectedAnswer === answerIndex
@@ -39,7 +47,7 @@ function AnswerChoices({
                     type="button"
                 >
                     <span className="font-medium uppercase text-zinc-400 dark:text-zinc-500">
-                        {String.fromCharCode(97 + answerIndex)}
+                        {String.fromCharCode(97 + displayIndex)}
                     </span>
                     <span>{answer}</span>
                 </button>
