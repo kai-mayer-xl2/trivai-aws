@@ -2,15 +2,16 @@
 
 import { useState } from "react";
 
-import type {  Question } from "@/lib/documents";
+import type { ActionResult, Question } from "@/lib/documents";
 
+import { ErrorFeedback } from "../../components/error-feedback";
 import { QuestionItem } from "./question-item";
 
 type QuestionPanelProps = {
     documentId: string;
     initialQuestions: Question[];
-    onGenerate: (documentId: string) => Promise<Question[]>;
-    onSubmit: (documentId: string, correctAnswers: Record<string, string>, wrongAnswers: Record<string, string>) => Promise<string>;
+    onGenerate: (documentId: string) => Promise<ActionResult<Question[]>>;
+    onSubmit: (documentId: string, correctAnswers: Record<string, string>, wrongAnswers: Record<string, string>) => Promise<ActionResult<string>>;
 };
 
 
@@ -50,17 +51,29 @@ export function QuestionPanel({
     const [submittedAnswers, setSubmittedAnswers] = useState<Record<string, number> | null>(null);
     const [studyGuidance, setStudyGuidance] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<{ message: string; retry: () => void } | null>(null);
 
     async function handleGenerateQuestions() {
         setIsGenerating(true);
+        setError(null);
 
         try {
-            const generatedQuestions = await onGenerate(documentId);
-            setQuestions(generatedQuestions);
-            setOpenQuestion(0);
-            setSelectedAnswers({});
-            setSubmittedAnswers(null);
-            setStudyGuidance(null);
+            const result = await onGenerate(documentId);
+            if (result.success) {
+                setQuestions(result.data);
+                setOpenQuestion(0);
+                setSelectedAnswers({});
+                setSubmittedAnswers(null);
+                setStudyGuidance(null);
+            } else {
+                setError({ message: result.error, retry: handleGenerateQuestions });
+            }
+        } catch (error) {
+            console.error("[question generation] Unexpected client failure", error);
+            setError({
+                message: "Questions could not be generated. Please try again.",
+                retry: handleGenerateQuestions,
+            });
         } finally {
             setIsGenerating(false);
         }
@@ -72,13 +85,16 @@ export function QuestionPanel({
 
     if (questions.length === 0) {
         return (
-            <button
-                className="flex h-12 min-h-12 items-center justify-center rounded-full bg-foreground px-5 text-base font-medium text-background transition-colors hover:bg-[#383838] disabled:cursor-wait disabled:opacity-70 dark:hover:bg-[#ccc] cursor-pointer"
-                onClick={handleGenerateQuestions}
-                type="button"
-            >
-                Generate Questions
-            </button>
+            <div className="space-y-5">
+                {error ? <ErrorFeedback message={error.message} onRetry={error.retry} /> : null}
+                <button
+                    className="flex h-12 min-h-12 items-center justify-center rounded-full bg-foreground px-5 text-base font-medium text-background transition-colors hover:bg-[#383838] disabled:cursor-wait disabled:opacity-70 dark:hover:bg-[#ccc] cursor-pointer"
+                    onClick={handleGenerateQuestions}
+                    type="button"
+                >
+                    Generate Questions
+                </button>
+            </div>
         );
     }
 
@@ -91,6 +107,7 @@ export function QuestionPanel({
 
         setSubmittedAnswers(submitted);
         setIsSubmitting(true);
+        setError(null);
 
         const correctAnswers: Record<string, string> = {};
         const wrongAnswers: Record<string, string> = {};
@@ -104,10 +121,20 @@ export function QuestionPanel({
         }
 
         try {
-            setStudyGuidance(await onSubmit(documentId, correctAnswers, wrongAnswers));
+            const result = await onSubmit(documentId, correctAnswers, wrongAnswers);
+            if (result.success) {
+                setStudyGuidance(result.data);
+            } else {
+                setSubmittedAnswers(null);
+                setError({ message: result.error, retry: handleSubmit });
+            }
         } catch (error) {
             setSubmittedAnswers(null);
-            throw error;
+            console.error("[study guidance] Unexpected client failure", error);
+            setError({
+                message: "Study guidance could not be created. Please try again.",
+                retry: handleSubmit,
+            });
         } finally {
             setIsSubmitting(false);
         }
@@ -119,6 +146,7 @@ export function QuestionPanel({
 
     return (
         <div className="space-y-5">
+            {error ? <ErrorFeedback message={error.message} onRetry={error.retry} /> : null}
             <ol className="space-y-3">
                 {questions.map((question, index) => (
                     <QuestionItem

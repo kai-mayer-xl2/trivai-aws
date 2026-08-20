@@ -1,8 +1,11 @@
 "use client";
 
 import { handleDocumentUpload } from "@/lib/documents";
-import { useState } from "react";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
+
+import { ErrorFeedback } from "../components/error-feedback";
 
 function UploadButton() {
     const { pending } = useFormStatus();
@@ -27,14 +30,23 @@ function UploadButton() {
 export default function UploadPage() {    
     const [fileName, setFileName] = useState("Choose a PDF");
     const [error, setError] = useState<string | null>(null);
+    const formRef = useRef<HTMLFormElement>(null);
 
     async function handleSubmit(formData: FormData) {
         setError(null);
 
+        try {
+            const result = await handleDocumentUpload(formData);
+            if (!result.success) {
+                setError(result.error);
+            }
+        } catch (error) {
+            if (isRedirectError(error)) {
+                throw error;
+            }
 
-        const result = await handleDocumentUpload(formData);
-        if (!result.success) {
-            setError(result.error ?? "An unknown error occurred.");
+            console.error("[upload] Unexpected client failure", error);
+            setError("The document could not be uploaded. Please try again.");
         }
     }
 
@@ -47,7 +59,7 @@ export default function UploadPage() {
                 <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
                     Select a PDF to be asked about its content.
                 </p>
-                <form action={handleSubmit} className="flex w-full max-w-md flex-col gap-3 sm:flex-row sm:gap-4">
+                <form action={handleSubmit} className="flex w-full max-w-md flex-col gap-3 sm:flex-row sm:gap-4" ref={formRef}>
                     <label className="flex h-12 min-h-12 min-w-0 flex-1 cursor-pointer items-center rounded-full border border-solid border-black/[.08] px-4 text-sm text-zinc-600 transition-colors hover:border-black/[.16] hover:bg-black/[.04] dark:border-white/[.145] dark:text-zinc-400 dark:hover:border-white/[.25] dark:hover:bg-[#1a1a1a]">
                         <span className="truncate">{fileName}</span>
                         <input
@@ -58,6 +70,7 @@ export default function UploadPage() {
                             accept=".pdf"
                             required
                             onChange={(event) => {
+                                setError(null);
                                 setFileName(event.target.files?.[0]?.name ?? "Choose a PDF");
                             }}
                         />
@@ -65,10 +78,14 @@ export default function UploadPage() {
                     <UploadButton />
                 </form>
                 {error ? (
-                    <p className="w-full h-1 max-w-md text-sm text-red-600 dark:text-red-400" role="alert">
-                        {error}
-                    </p>
-                ) : <p className="h-1"></p>}
+                    <ErrorFeedback
+                        message={error}
+                        onRetry={() => formRef.current?.requestSubmit()}
+                        title={error === "File size exceeds the 1MB limit." || error === "Please choose a PDF before uploading."
+                            ? "Upload failed"
+                            : undefined}
+                    />
+                ) : null}
             </main>
         </div>
     );
