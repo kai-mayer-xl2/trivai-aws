@@ -23,6 +23,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
                         Document
                     </p>
                     <a
+                        aria-label={`${document.title} (opens in a new tab)`}
                         className="group inline-flex max-w-full items-center gap-2 border-b-2 border-zinc-300 text-3xl font-semibold leading-10 tracking-tight text-black transition-colors hover:border-zinc-500 hover:text-zinc-600 dark:border-zinc-700 dark:text-zinc-50 dark:hover:border-zinc-400 dark:hover:text-zinc-300"
                         href={document.url}
                         rel="noreferrer"

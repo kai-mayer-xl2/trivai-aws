@@ -1,7 +1,8 @@
 "use server";
 
-import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { BedrockRuntimeClient, ConverseCommand, DocumentFormat } from "@aws-sdk/client-bedrock-runtime";
 import { notFound, redirect } from "next/navigation";
 import { CREATE_QUESTIONS_PROMPT, CREATE_STUDY_GUIDANCE_PROMPT } from "./prompts";
@@ -57,6 +58,7 @@ export async function handleDocumentUpload(formData: FormData): Promise<ActionRe
             Bucket: ASSETS_BUCKET_NAME,
             Key: `documents/${documentId}.pdf`,
             Body: body,
+            ContentType: "application/pdf",
             Metadata: {
                 name: file.name,
             },
@@ -71,9 +73,10 @@ export async function handleDocumentUpload(formData: FormData): Promise<ActionRe
 }
 
 export async function getDocumentById(id: string): Promise<DocumentRecord> {
+    const key = `documents/${id}.pdf`;
     const metadata = await s3.send(new HeadObjectCommand({
         Bucket: ASSETS_BUCKET_NAME,
-        Key: `documents/${id}.pdf`,
+        Key: key,
     })).catch((error) => {
         if (error.name === "NotFound") {
             notFound();
@@ -81,11 +84,17 @@ export async function getDocumentById(id: string): Promise<DocumentRecord> {
 
         throw error;
     });
+    const url = await getSignedUrl(s3, new GetObjectCommand({
+        Bucket: ASSETS_BUCKET_NAME,
+        Key: key,
+        ResponseContentType: "application/pdf",
+        ResponseContentDisposition: "inline",
+    }), { expiresIn: 3600 });
 
     return {
         id,
         title: metadata.Metadata?.name || "Untitled Document",
-        url: `/documents/${id}/file`,
+        url,
         questions: [],
     };
 }
