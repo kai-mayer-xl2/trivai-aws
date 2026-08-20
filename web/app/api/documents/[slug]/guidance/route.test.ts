@@ -68,4 +68,21 @@ describe("POST /api/documents/[slug]/guidance", () => {
         await expect(response.json()).resolves.toEqual({ error: "Invalid guidance request." });
         expect(streamStudyGuidance).not.toHaveBeenCalled();
     });
+
+    it.each([
+        { correctAnswers: [], wrongAnswers: {} },
+        { correctAnswers: { "0": "1" }, wrongAnswers: {} },
+        { correctAnswers: {}, wrongAnswers: { "0": "0" } },
+        { correctAnswers: { "10": "0" }, wrongAnswers: {} },
+        { correctAnswers: { "0": "0" }, wrongAnswers: { "0": "1" } },
+    ])("rejects invalid answer record shapes and values: %#", async (body) => {
+        const response = await POST(new Request("http://localhost/api/documents/doc-123/guidance", {
+            method: "POST",
+            body: JSON.stringify(body),
+            headers: { "Content-Type": "application/json" },
+        }), { params: Promise.resolve({ slug: "doc-123" }) });
+
+        expect(response.status).toBe(400);
+        expect(streamStudyGuidance).not.toHaveBeenCalled();
+    });
 });

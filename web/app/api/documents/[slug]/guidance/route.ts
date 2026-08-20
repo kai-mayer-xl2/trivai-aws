@@ -10,8 +10,22 @@ type GuidanceRouteContext = {
 
 type AnswerRecords = Record<string, string>;
 
-function isAnswerRecords(value: unknown): value is AnswerRecords {
-    return typeof value === "object" && value !== null && Object.values(value).every((answer) => typeof answer === "string");
+function isAnswerRecords(value: unknown, allowedAnswers: Set<string>): value is AnswerRecords {
+    if (
+        typeof value !== "object" ||
+        value === null ||
+        Array.isArray(value) ||
+        (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)
+    ) {
+        return false;
+    }
+
+    const entries = Object.entries(value);
+    return entries.length <= 10 && entries.every(([questionKey, answer]) => (
+        /^(?:[0-9]|10)$/.test(questionKey) &&
+        Number(questionKey) < 10 &&
+        allowedAnswers.has(answer)
+    ));
 }
 
 function frame(event: { type: "text"; value: string } | { type: "done" } | { type: "error"; message: string }) {
@@ -32,8 +46,8 @@ export async function POST(request: Request, { params }: GuidanceRouteContext) {
         !slug ||
         typeof body !== "object" ||
         body === null ||
-        !isAnswerRecords((body as Record<string, unknown>).correctAnswers) ||
-        !isAnswerRecords((body as Record<string, unknown>).wrongAnswers)
+        !isAnswerRecords((body as Record<string, unknown>).correctAnswers, new Set(["0"])) ||
+        !isAnswerRecords((body as Record<string, unknown>).wrongAnswers, new Set(["1", "2", "3"]))
     ) {
         return Response.json({ error: "Invalid guidance request." }, { status: 400 });
     }
@@ -42,6 +56,10 @@ export async function POST(request: Request, { params }: GuidanceRouteContext) {
         correctAnswers: AnswerRecords;
         wrongAnswers: AnswerRecords;
     };
+
+    if (Object.keys(requestBody.correctAnswers).some((key) => key in requestBody.wrongAnswers)) {
+        return Response.json({ error: "Invalid guidance request." }, { status: 400 });
+    }
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
