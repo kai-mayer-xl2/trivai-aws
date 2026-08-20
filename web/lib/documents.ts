@@ -29,29 +29,45 @@ export type DocumentRecord = {
     questions: Question[];
 };
 
-export async function handleDocumentUpload(formData: FormData): Promise<{ success: boolean, error?: string }> {
+export type ActionResult<T> =
+    | { success: true; data: T }
+    | { success: false; error: string };
+
+function logUnexpectedError(operation: string, error: unknown, documentId?: string) {
+    console.error(`[${operation}] Unexpected failure`, { documentId, error });
+}
+
+export async function handleDocumentUpload(formData: FormData): Promise<ActionResult<never>> {
     const file = formData.get("document") as File | null;
     if (!file) {
-        throw new Error("No file provided");
+        return { success: false, error: "Please choose a PDF before uploading." };
     }
 
-    const body = await file.bytes();
-    const id = crypto.randomUUID();
+    let documentId: string;
 
-    if (body.length > 1 * 1024 * 1024) {
-        return { success: false, error: "File size exceeds the 1MB limit." };
+    try {
+        const body = await file.bytes();
+        documentId = crypto.randomUUID();
+
+        if (body.length > 1 * 1024 * 1024) {
+            return { success: false, error: "File size exceeds the 1MB limit." };
+        }
+
+        await s3.send(new PutObjectCommand({
+            Bucket: ASSETS_BUCKET_NAME,
+            Key: `documents/${documentId}.pdf`,
+            Body: body,
+            Metadata: {
+                name: file.name,
+            },
+        }));
+
+    } catch (error) {
+        logUnexpectedError("upload", error);
+        return { success: false, error: "The document could not be uploaded. Please try again." };
     }
 
-    await s3.send(new PutObjectCommand({
-        Bucket: ASSETS_BUCKET_NAME,
-        Key: `documents/${id}.pdf`,
-        Body: body,
-        Metadata: {
-            name: file.name,
-        },
-    }));
-
-    redirect(`/documents/${id}`);
+    redirect(`/documents/${documentId}`);
 }
 
 export async function getDocumentById(id: string): Promise<DocumentRecord> {
@@ -76,8 +92,9 @@ export async function getDocumentById(id: string): Promise<DocumentRecord> {
 
 export async function generateQuestionsForDocument(
     documentId: string,
-): Promise<Question[]> {
-    const response = await bedrock.send(new ConverseCommand({
+): Promise<ActionResult<Question[]>> {
+    try {
+        const response = await bedrock.send(new ConverseCommand({
         modelId: "eu.amazon.nova-pro-v1:0",
         messages: [
             {
@@ -100,23 +117,28 @@ export async function generateQuestionsForDocument(
                 ]
             },
         ],
-    }));
+        }));
 
-    const text = response.output?.message?.content?.[0]?.text;
-    if (!text) {
-        throw new Error("No text response from model");
+        const text = response.output?.message?.content?.[0]?.text;
+        if (!text) {
+            throw new Error("No text response from model");
+        }
+
+        const json = JSON.parse(text) as { questions: Question[] };
+        return { success: true, data: json.questions };
+    } catch (error) {
+        logUnexpectedError("question generation", error, documentId);
+        return { success: false, error: "Questions could not be generated. Please try again." };
     }
-
-    const json = JSON.parse(text) as { questions: Question[] };
-    return json.questions;
 }
 
 export async function submitQuestionsForDocument(
     documentId: string,
     correctAnswers: Record<string, string>,
     wrongAnswers: Record<string, string>,
-): Promise<string> {
- const response = await bedrock.send(new ConverseCommand({
+): Promise<ActionResult<string>> {
+    try {
+        const response = await bedrock.send(new ConverseCommand({
         modelId: "eu.amazon.nova-pro-v1:0",
         messages: [
             {
@@ -139,12 +161,16 @@ export async function submitQuestionsForDocument(
                 ]
             },
         ],
-    }));
+        }));
 
-    const text = response.output?.message?.content?.[0]?.text;
-    if (!text) {
-        throw new Error("No text response from model");
+        const text = response.output?.message?.content?.[0]?.text;
+        if (!text) {
+            throw new Error("No text response from model");
+        }
+
+        return { success: true, data: text };
+    } catch (error) {
+        logUnexpectedError("study guidance", error, documentId);
+        return { success: false, error: "Study guidance could not be created. Please try again." };
     }
-
-    return text;
 }
