@@ -6,6 +6,8 @@ TrivAI is a demonstration application for turning a PDF into a focused multiple-
 
 Do not add a workaround solely to make a command, test, or UI appear to work. In particular, do not replace AWS or Bedrock behavior with hidden mock paths, weaken validation, bypass authorization, silently swallow failures, or hard-code results unless the issue explicitly calls for a local test double. Keep the scope proportionate to a demonstration project; do not add production complexity that does not support a stated requirement.
 
+Do not bypass pnpm dependency release-age policy. Never add `minimumReleaseAgeExclude` or an equivalent allowlist merely to install a newer package; keep the repository's existing dependency versions unless the task explicitly requires an upgrade and the policy-compliant path is clear.
+
 When the repository, issue, or acceptance criteria leave a product, technical, AWS, or security decision ambiguous, stop and ask the user. Do not assume the desired behavior, data model, AWS service choice, deployment configuration, or migration strategy.
 
 ## Repository Layout
