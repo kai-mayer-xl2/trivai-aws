@@ -1,9 +1,5 @@
 
-import {
-    generateQuestionsForDocument,
-    getDocumentById,
-    submitQuestionsForDocument,
-} from "@/lib/documents";
+import { getDocumentById } from "@/lib/documents";
 
 import { QuestionPanel } from "./question-panel";
 
@@ -51,8 +47,6 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
                     <QuestionPanel
                         documentId={document.id}
                         initialQuestions={document.questions}
-                        onGenerate={generateQuestionsForDocument}
-                        onSubmit={submitQuestionsForDocument}
                     />
                 </section>
             </main>

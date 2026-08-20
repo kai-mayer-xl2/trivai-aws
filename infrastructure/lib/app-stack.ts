@@ -5,7 +5,7 @@ import { AllowedMethods, CachePolicy, Distribution, OriginRequestPolicy, ViewerP
 import { HttpOrigin, S3BucketOrigin, S3Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
 import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import { Architecture, DockerImageCode, DockerImageFunction, FunctionUrlAuthType } from 'aws-cdk-lib/aws-lambda';
+import { Architecture, DockerImageCode, DockerImageFunction, FunctionUrlAuthType, InvokeMode } from 'aws-cdk-lib/aws-lambda';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
@@ -46,17 +46,19 @@ export class AppStack extends Stack {
             logGroup: logGroup,
             environment: {
                 ASSETS_BUCKET_NAME: bucket.bucketName,
+                AWS_LWA_INVOKE_MODE: 'response_stream',
             },
             timeout: Duration.minutes(5),
         });
         bucket.grantReadWrite(lambda);
         lambda.addToRolePolicy(new PolicyStatement({
             effect: Effect.ALLOW,
-            actions: ['bedrock:InvokeModel'],
+            actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
             resources: ['*'],
         }));
         const functionUrl = lambda.addFunctionUrl({
             authType: FunctionUrlAuthType.NONE,
+            invokeMode: InvokeMode.RESPONSE_STREAM,
         });
 
         const api = new RestApi(this, 'trivai-api', {
