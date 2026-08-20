@@ -47,6 +47,7 @@ export function QuestionPanel({
     const [isGenerating, setIsGenerating] = useState(false);
     const [openQuestion, setOpenQuestion] = useState<number | null>(null);
     const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
+    const [submittedAnswers, setSubmittedAnswers] = useState<Record<string, number> | null>(null);
     const [studyGuidance, setStudyGuidance] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -58,6 +59,7 @@ export function QuestionPanel({
             setQuestions(generatedQuestions);
             setOpenQuestion(0);
             setSelectedAnswers({});
+            setSubmittedAnswers(null);
             setStudyGuidance(null);
         } finally {
             setIsGenerating(false);
@@ -85,12 +87,15 @@ export function QuestionPanel({
     );
 
     async function handleSubmit() {
+        const submitted = { ...selectedAnswers };
+
+        setSubmittedAnswers(submitted);
         setIsSubmitting(true);
 
         const correctAnswers: Record<string, string> = {};
         const wrongAnswers: Record<string, string> = {};
 
-        for (const [index, answerIndex] of Object.entries(selectedAnswers)) {
+        for (const [index, answerIndex] of Object.entries(submitted)) {
             if (answerIndex === 0) {
                 correctAnswers[index] = answerIndex.toString();
             } else {
@@ -100,10 +105,17 @@ export function QuestionPanel({
 
         try {
             setStudyGuidance(await onSubmit(documentId, correctAnswers, wrongAnswers));
+        } catch (error) {
+            setSubmittedAnswers(null);
+            throw error;
         } finally {
             setIsSubmitting(false);
         }
     }
+
+    const correctAnswerCount = submittedAnswers
+        ? Object.values(submittedAnswers).filter((answerIndex) => answerIndex === 0).length
+        : 0;
 
     return (
         <div className="space-y-5">
@@ -124,6 +136,7 @@ export function QuestionPanel({
                         onToggle={() => setOpenQuestion(openQuestion === index ? null : index)}
                         question={question.question}
                         selectedAnswer={selectedAnswers[index]}
+                        submitted={submittedAnswers !== null}
                     />
                 ))}
             </ol>
@@ -137,6 +150,15 @@ export function QuestionPanel({
                     Get Study Guidance
                 </button>
             </div>
+            {submittedAnswers ? (
+                <p
+                    aria-live="polite"
+                    className="text-base font-medium text-emerald-700 dark:text-emerald-400"
+                    role="status"
+                >
+                    Score: {correctAnswerCount} of {questions.length} correct
+                </p>
+            ) : null}
             {isSubmitting ? LargeBoxShimmer() : studyGuidance ? (
                 <>
                     <p className="rounded-lg border border-black/[.08] px-4 py-3 text-base leading-7 text-zinc-600 dark:border-white/[.145] dark:text-zinc-400">
