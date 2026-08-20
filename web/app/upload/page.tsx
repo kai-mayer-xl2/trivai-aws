@@ -1,6 +1,7 @@
 "use client";
 
 import { handleDocumentUpload } from "@/lib/documents";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 
@@ -40,6 +41,10 @@ export default function UploadPage() {
                 setError(result.error);
             }
         } catch (error) {
+            if (isRedirectError(error)) {
+                throw error;
+            }
+
             console.error("[upload] Unexpected client failure", error);
             setError("The document could not be uploaded. Please try again.");
         }
